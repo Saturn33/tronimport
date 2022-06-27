@@ -18,6 +18,19 @@ function getNode(seed) {
     });
 }
 
+function trimMnemonic(mnemonic) {
+    return mnemonic.trim().replace(/\s+/g, ' ');
+}
+
+function validateAmount(amount) {
+    amount = amount | 0;
+    if (amount <= 1) {
+        amount = 1;
+    }
+
+    return amount;
+}
+
 function getAccounts(node, amount) {
     let promises = [];
     for (let index = 0; index < amount; index++) {
@@ -36,22 +49,12 @@ function getAccounts(node, amount) {
             });
         }));
     }
+
     return Promise.all(promises);
 }
 
-function trimMnemonic(mnemonic) {
-    return mnemonic.trim().replace(/\s+/g, ' ');
-}
-
-function validateAmount(amount) {
-    amount = amount | 0;
-    if (amount <= 1) {
-        amount = 1;
-    }
-    return amount;
-}
-
 function getCredentials() {
+    console.warn('Turn off the network before entering your mnemonic phrase and password!');
     return new Promise(function (resolve) {
         const rl = readline.createInterface({
             input: process.stdin,
@@ -66,7 +69,7 @@ function getCredentials() {
                 console.warn("Your mnemonic is INVALID, but it's not a problem, if you know what you do");
             }
             rl.question(`Enter your mnemonic password (optional): `, (password) => {
-                rl.question(`How many adresses you want to generate (1 by default)? `, (amount) => {
+                rl.question(`How many addresses do you want to generate (1 by default)? `, (amount) => {
                     amount = validateAmount(amount);
                     rl.close();
                     resolve({mnemonic, password, amount});
