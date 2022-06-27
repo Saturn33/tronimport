@@ -18,17 +18,37 @@ function getNode(seed) {
     });
 }
 
-function getAccountAtIndex(node, index = 0) {
-    return new Promise(function (resolve) {
-        let child = node.derivePath(`m/44'/195'/${index}'/0/0`);
-        let privateKey = child.privateKey.toString('hex');
-        let address = TronWeb.address.fromPrivateKey(privateKey);
+function getAccounts(node, amount) {
+    let promises = [];
+    for (let index = 0; index < amount; index++) {
+        promises.push(new Promise(function (resolve) {
+            let child = node.derivePath(`m/44'/195'/${index}'/0/0`); //ledger, tronlink
+            //if you are using something else, these paths may be ok for you
+            // let child = node.derivePath(`m/44'/195'/${index}'/0`);
+            // let child = node.derivePath(`m/44'/195'/${index}'`);
+            let privateKey = child.privateKey.toString('hex');
+            let address = TronWeb.address.fromPrivateKey(privateKey);
 
-        resolve({
-            privateKey,
-            address
-        });
-    });
+            resolve({
+                index,
+                address,
+                privateKey,
+            });
+        }));
+    }
+    return Promise.all(promises);
+}
+
+function trimMnemonic(mnemonic) {
+    return mnemonic.trim().replace(/\s+/g, ' ');
+}
+
+function validateAmount(amount) {
+    amount = amount | 0;
+    if (amount <= 1) {
+        amount = 1;
+    }
+    return amount;
 }
 
 function getCredentials() {
@@ -39,9 +59,18 @@ function getCredentials() {
             terminal: false
         });
         rl.question(`Enter your mnemonic: `, (mnemonic) => {
-            rl.question(`Enter your password: `, (password) => {
-                rl.close();
-                resolve({mnemonic, password});
+            mnemonic = trimMnemonic(mnemonic);
+            if (bip39.validateMnemonic(mnemonic)) {
+                console.info("Your mnemonic is OK");
+            } else {
+                console.warn("Your mnemonic is INVALID, but it's not a problem, if you know what you do");
+            }
+            rl.question(`Enter your mnemonic password (optional): `, (password) => {
+                rl.question(`How many adresses you want to generate (1 by default)? `, (amount) => {
+                    amount = validateAmount(amount);
+                    rl.close();
+                    resolve({mnemonic, password, amount});
+                });
             });
         });
     })
@@ -49,9 +78,12 @@ function getCredentials() {
 
 //main flow
 getCredentials()
-    .then(data => getSeed(data.mnemonic, data.password))
-    .then(seed => getNode(seed))
-    .then(node => getAccountAtIndex(node, 0))
     .then(data => {
-        console.log(data);
-    });
+            getSeed(data.mnemonic, data.password)
+                .then(seed => getNode(seed))
+                .then(node => getAccounts(node, data.amount))
+                .then(result => {
+                    console.info(result);
+                });
+        }
+    );
